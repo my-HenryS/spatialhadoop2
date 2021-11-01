@@ -50,6 +50,7 @@ public class RangeFilter extends DefaultBlockFilter {
       // processed and should be copied to output directly
       numPartitions = 0;
       for (Partition p : gIndex) {
+        // System.out.println(p);
         if (queryMBR.contains(p)) {
           // TODO partitions totally contained in query range should be copied
           // to output directly

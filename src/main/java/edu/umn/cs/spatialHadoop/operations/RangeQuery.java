@@ -8,11 +8,21 @@
 *************************************************************************/
 package edu.umn.cs.spatialHadoop.operations;
 
+import edu.umn.cs.spatialHadoop.OperationsParams;
+import edu.umn.cs.spatialHadoop.core.Rectangle;
+import edu.umn.cs.spatialHadoop.core.ResultCollector;
+import edu.umn.cs.spatialHadoop.core.Shape;
+import edu.umn.cs.spatialHadoop.io.Text2;
+import edu.umn.cs.spatialHadoop.mapred.TextOutputFormat3;
+import edu.umn.cs.spatialHadoop.mapreduce.LocalIndexRecordReader;
+import edu.umn.cs.spatialHadoop.mapreduce.SpatialInputFormat3;
+import edu.umn.cs.spatialHadoop.mapreduce.SpatialRecordReader3;
+import edu.umn.cs.spatialHadoop.nasa.HDFRecordReader;
+import edu.umn.cs.spatialHadoop.util.Parallel;
+import edu.umn.cs.spatialHadoop.util.Parallel.RunnableRange;
 import java.io.IOException;
 import java.util.List;
 import java.util.Vector;
-
-import edu.umn.cs.spatialHadoop.mapreduce.LocalIndexRecordReader;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -33,18 +43,7 @@ import org.apache.hadoop.mapreduce.lib.input.FileSplit;
 import org.apache.hadoop.mapreduce.lib.output.NullOutputFormat;
 import org.apache.hadoop.util.GenericOptionsParser;
 
-import edu.umn.cs.spatialHadoop.OperationsParams;
-import edu.umn.cs.spatialHadoop.core.Rectangle;
-import edu.umn.cs.spatialHadoop.core.ResultCollector;
-import edu.umn.cs.spatialHadoop.core.Shape;
-import edu.umn.cs.spatialHadoop.io.Text2;
-import edu.umn.cs.spatialHadoop.mapred.TextOutputFormat3;
-import edu.umn.cs.spatialHadoop.mapreduce.SpatialInputFormat3;
-import edu.umn.cs.spatialHadoop.mapreduce.SpatialRecordReader3;
-import edu.umn.cs.spatialHadoop.nasa.HDFRecordReader;
-import edu.umn.cs.spatialHadoop.util.Parallel;
-import edu.umn.cs.spatialHadoop.util.Parallel.RunnableRange;
-import edu.umn.cs.spatialHadoop.util.ResultCollectorSynchronizer;
+
 
 /**
  * Performs a range query over a spatial file.
@@ -127,12 +126,15 @@ public class RangeQuery {
       final OperationsParams params, final ResultCollector<S> output) throws IOException, InterruptedException {
     // Set MBR of query shape in job configuration to work with the spatial filter
     OperationsParams.setShape(params, SpatialInputFormat3.InputQueryRange, queryRange.getMBR());
+    long t1 = System.currentTimeMillis();
     // 1- Split the input path/file to get splits that can be processed independently
     final SpatialInputFormat3<Rectangle, S> inputFormat =
         new SpatialInputFormat3<Rectangle, S>();
     Job job = Job.getInstance(params);
     SpatialInputFormat3.setInputPaths(job, inPath);
     final List<InputSplit> splits = inputFormat.getSplits(job);
+
+    long t2 = System.currentTimeMillis();
     
     // 2- Process splits in parallel
     List<Long> results = Parallel.forEach(splits.size(), new RunnableRange<Long>() {
@@ -171,6 +173,10 @@ public class RangeQuery {
         return results;
       }
     });
+    long t3 = System.currentTimeMillis();
+    
+    System.out.println("Time for partition query is "+(t2-t1)+" millis");
+    System.out.println("Time for reading partition is "+(t3-t2)+" millis");
     long totalResultSize = 0;
     for (long result : results)
       totalResultSize += result;

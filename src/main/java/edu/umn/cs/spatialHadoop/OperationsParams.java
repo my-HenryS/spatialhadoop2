@@ -8,13 +8,26 @@
 *************************************************************************/
 package edu.umn.cs.spatialHadoop;
 
+import edu.umn.cs.spatialHadoop.core.CSVOGC;
+import edu.umn.cs.spatialHadoop.core.OGCJTSShape;
+import edu.umn.cs.spatialHadoop.core.Point;
+import edu.umn.cs.spatialHadoop.core.Rectangle;
+import edu.umn.cs.spatialHadoop.core.Shape;
+import edu.umn.cs.spatialHadoop.core.SpatialSite;
+import edu.umn.cs.spatialHadoop.indexing.Partition;
+import edu.umn.cs.spatialHadoop.io.Text2;
+import edu.umn.cs.spatialHadoop.io.TextSerializable;
+import edu.umn.cs.spatialHadoop.io.TextSerializerHelper;
+import edu.umn.cs.spatialHadoop.mapreduce.SpatialInputFormat3;
+import edu.umn.cs.spatialHadoop.operations.Head;
+import edu.umn.cs.spatialHadoop.osm.OSMEdge;
+import edu.umn.cs.spatialHadoop.osm.OSMPoint;
 import java.awt.Color;
 import java.io.IOException;
 import java.lang.reflect.Array;
 import java.util.List;
 import java.util.Vector;
 import java.util.regex.Pattern;
-
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
@@ -25,27 +38,7 @@ import org.apache.hadoop.mapreduce.InputSplit;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.util.GenericOptionsParser;
 
-import edu.umn.cs.spatialHadoop.core.CSVOGC;
-import edu.umn.cs.spatialHadoop.core.OGCESRIShape;
-import edu.umn.cs.spatialHadoop.core.OGCJTSShape;
-import edu.umn.cs.spatialHadoop.core.Point;
-import edu.umn.cs.spatialHadoop.core.Polygon;
-import edu.umn.cs.spatialHadoop.core.Rectangle;
-import edu.umn.cs.spatialHadoop.core.ResultCollector;
-import edu.umn.cs.spatialHadoop.core.Shape;
-import edu.umn.cs.spatialHadoop.core.SpatialSite;
-import edu.umn.cs.spatialHadoop.indexing.Partition;
-import edu.umn.cs.spatialHadoop.io.Text2;
-import edu.umn.cs.spatialHadoop.io.TextSerializable;
-import edu.umn.cs.spatialHadoop.io.TextSerializerHelper;
-import edu.umn.cs.spatialHadoop.mapreduce.SpatialInputFormat3;
-import edu.umn.cs.spatialHadoop.nasa.NASAPoint;
-import edu.umn.cs.spatialHadoop.nasa.NASARectangle;
-import edu.umn.cs.spatialHadoop.operations.Head;
-import edu.umn.cs.spatialHadoop.operations.LocalSampler;
-import edu.umn.cs.spatialHadoop.osm.OSMEdge;
-import edu.umn.cs.spatialHadoop.osm.OSMPoint;
-import edu.umn.cs.spatialHadoop.osm.OSMPolygon;
+
 
 /**
  * A class that encapsulates all parameters sent for an operations implemented
@@ -66,7 +59,7 @@ public class OperationsParams extends Configuration {
 	private static final int MaxSplitsForLocalProcessing = Runtime.getRuntime()
 			.availableProcessors();
 
-	private static final long MaxSizeForLocalProcessing = 200 * 1024 * 1024;
+	private static final long MaxSizeForLocalProcessing = 20000 * 1024 * 1024;
 
 	/** All detected input paths */
 	private Path[] allPaths;
@@ -465,22 +458,23 @@ public class OperationsParams extends Configuration {
 
 	public static long getSize(Configuration conf, String key) {
 		String size_str = conf.get(key);
-		if (size_str == null)
-			return 0;
-		if (size_str.indexOf('.') == -1)
-			return Long.parseLong(size_str);
-		String[] size_parts = size_str.split("\\.", 2);
-		long size = Long.parseLong(size_parts[0]);
-		size_parts[1] = size_parts[1].toLowerCase();
-		if (size_parts[1].startsWith("k"))
-			size *= 1024;
-		else if (size_parts[1].startsWith("m"))
-			size *= 1024 * 1024;
-		else if (size_parts[1].startsWith("g"))
-			size *= 1024 * 1024 * 1024;
-		else if (size_parts[1].startsWith("t"))
-			size *= 1024 * 1024 * 1024 * 1024;
-		return size;
+		return conf.getLongBytes(key, 0);
+		// if (size_str == null)
+		// 	return 0;
+		// if (size_str.indexOf('.') == -1)
+		// 	return Long.parseLong(size_str);
+		// String[] size_parts = size_str.split("\\.", 2);
+		// long size = Long.parseLong(size_parts[0]);
+		// size_parts[1] = size_parts[1].toLowerCase();
+		// if (size_parts[1].startsWith("k"))
+		// 	size *= 1024;
+		// else if (size_parts[1].startsWith("m"))
+		// 	size *= 1024 * 1024;
+		// else if (size_parts[1].startsWith("g"))
+		// 	size *= 1024 * 1024 * 1024;
+		// else if (size_parts[1].startsWith("t"))
+		// 	size *= 1024 * 1024 * 1024 * 1024;
+		// return size;
 	}
 	
 	public static int getJoiningThresholdPerOnce(Configuration conf,
@@ -873,8 +867,10 @@ public class OperationsParams extends Configuration {
 
 		try {
 			List<InputSplit> splits = inputFormat.getSplits(job);
-			if (splits.size() > MaxSplitsForLocalProcessing)
+			if (splits.size() > MaxSplitsForLocalProcessing){
+				LOG.info("Too many files. Using MapReduce");
 				return MapReduceProcessing;
+			}
 
 			long totalSize = 0;
 			for (InputSplit split : splits)

@@ -284,9 +284,11 @@ public class Indexer {
   private static Partitioner initializeIndexers(Path[] inPaths, Path outPath, Configuration conf) throws IOException, InterruptedException {
     // Set the correct partitioner according to index type
     String sindex = conf.get("sindex");
+    System.out.println(sindex);
     SpatialSite.SpatialIndex spatialIndex;
-    if (sindex != null && SpatialSite.CommonSpatialIndex.containsKey(sindex))
+    if (sindex != null && SpatialSite.CommonSpatialIndex.containsKey(sindex)){
       spatialIndex = SpatialSite.CommonSpatialIndex.get(sindex);
+    }
     else
       spatialIndex = new SpatialSite.SpatialIndex();
     if (conf.get("gindex") != null)
@@ -297,6 +299,8 @@ public class Indexer {
 
     if (spatialIndex.lindex != null)
       conf.setClass(LocalIndex.LocalIndexClass, spatialIndex.lindex, LocalIndex.class);
+
+    System.out.println(spatialIndex.gindex);
 
     long t1 = System.nanoTime();
     Partitioner partitioner = initializeGlobalIndex(inPaths, outPath, conf, spatialIndex.gindex);

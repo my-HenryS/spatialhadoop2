@@ -28,6 +28,7 @@ GlobalIndexes:
   - edu.umn.cs.spatialHadoop.indexing.ZCurvePartitioner
   - edu.umn.cs.spatialHadoop.indexing.HilbertCurvePartitioner
   - edu.umn.cs.spatialHadoop.indexing.QuadTreePartitioner
+  - edu.umn.cs.spatialHadoop.indexing.LearnedPartitioner
 
 # Short names for common local indexes
 LocalIndexes:
@@ -37,6 +38,10 @@ LocalIndexes:
 SpatialIndexes:
   - short-name: grid
     gindex: grid
+    disjoint: true
+
+  - short-name: learned
+    gindex: learned
     disjoint: true
 
   - short-name: str
